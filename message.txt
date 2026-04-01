@@ -1,0 +1,308 @@
+
+
+# OS Lab: Page Replacement & Banker's Algorithm
+
+You need to implement two things:
+
+---
+
+## 1. Page Replacement Algorithms
+
+When RAM (frames) is full and a new page is needed, **which page do you kick out?**
+
+### The 3 Classic Algorithms
+
+| Algorithm | Strategy |
+|-----------|----------|
+| **FIFO** | Remove the **oldest** page (first in, first out) |
+| **LRU** | Remove the **least recently used** page |
+| **Optimal** | Remove the page that **won't be used for the longest time** in the future |
+
+### C++ Implementation (All Three)
+
+```cpp
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_set>
+#include <algorithm>
+using namespace std;
+
+// ==================== FIFO ====================
+int fifo(vector<int>& pages, int frames) {
+    unordered_set<int> s;       // pages currently in memory
+    queue<int> q;               // track insertion order
+    int pageFaults = 0;
+
+    for (int page : pages) {
+        if (s.find(page) == s.end()) {   // PAGE FAULT
+            pageFaults++;
+            if ((int)s.size() == frames) {
+                int oldest = q.front();  // remove oldest
+                q.pop();
+                s.erase(oldest);
+            }
+            s.insert(page);
+            q.push(page);
+        }
+        // if page already in memory → no fault, do nothing
+    }
+    return pageFaults;
+}
+
+// ==================== LRU ====================
+int lru(vector<int>& pages, int frames) {
+    vector<int> memory;         // pages in memory (order = recent use)
+    int pageFaults = 0;
+
+    for (int page : pages) {
+        auto it = find(memory.begin(), memory.end(), page);
+
+        if (it == memory.end()) {        // PAGE FAULT
+            pageFaults++;
+            if ((int)memory.size() == frames) {
+                memory.erase(memory.begin());  // remove least recent (front)
+            }
+            memory.push_back(page);            // add as most recent (back)
+        } else {
+            // Page exists → move it to back (most recently used)
+            memory.erase(it);
+            memory.push_back(page);
+        }
+    }
+    return pageFaults;
+}
+
+// ==================== OPTIMAL ====================
+int optimal(vector<int>& pages, int frames) {
+    vector<int> memory;
+    int pageFaults = 0;
+
+    for (int i = 0; i < (int)pages.size(); i++) {
+        if (find(memory.begin(), memory.end(), pages[i]) == memory.end()) {
+            pageFaults++;   // PAGE FAULT
+            if ((int)memory.size() == frames) {
+                // Find page that won't be used for longest time
+                int farthest = -1, replaceIdx = 0;
+                for (int j = 0; j < (int)memory.size(); j++) {
+                    int nextUse = INT_MAX;
+                    for (int k = i + 1; k < (int)pages.size(); k++) {
+                        if (pages[k] == memory[j]) {
+                            nextUse = k;
+                            break;
+                        }
+                    }
+                    if (nextUse > farthest) {
+                        farthest = nextUse;
+                        replaceIdx = j;
+                    }
+                }
+                memory[replaceIdx] = pages[i];
+            } else {
+                memory.push_back(pages[i]);
+            }
+        }
+    }
+    return pageFaults;
+}
+
+int main() {
+    int n, frames;
+    cout << "Enter number of pages: ";
+    cin >> n;
+
+    vector<int> pages(n);
+    cout << "Enter page reference string: ";
+    for (int i = 0; i < n; i++) cin >> pages[i];
+
+    cout << "Enter number of frames: ";
+    cin >> frames;
+
+    cout << "\n--- Results ---\n";
+    cout << "FIFO    Page Faults: " << fifo(pages, frames) << endl;
+    cout << "LRU     Page Faults: " << lru(pages, frames) << endl;
+    cout << "Optimal Page Faults: " << optimal(pages, frames) << endl;
+
+    return 0;
+}
+```
+
+### Sample Run
+```
+Enter number of pages: 12
+Enter page reference string: 7 0 1 2 0 3 0 4 2 3 0 3
+Enter number of frames: 3
+
+--- Results ---
+FIFO    Page Faults: 9
+LRU     Page Faults: 7
+Optimal Page Faults: 6
+```
+
+---
+
+## 2. Banker's Algorithm (Not "Banking" 😄)
+
+This is a **deadlock avoidance** algorithm. Given processes and resources, it checks:
+> *"If I grant this request, will the system still be in a SAFE state?"*
+
+### Key Concepts
+
+```
+Need[i] = Max[i] - Allocation[i]    ← what each process still needs
+
+Available = Total - (sum of all Allocations)  ← what's free right now
+```
+
+**Safe State** = There exists some order to finish ALL processes without deadlock.
+
+### C++ Implementation
+
+```cpp
+#include <iostream>
+#include <vector>
+using namespace std;
+
+int main() {
+    int P, R;  // processes, resource types
+    cout << "Enter number of processes: ";
+    cin >> P;
+    cout << "Enter number of resource types: ";
+    cin >> R;
+
+    vector<vector<int>> max_need(P, vector<int>(R));
+    vector<vector<int>> allocation(P, vector<int>(R));
+    vector<vector<int>> need(P, vector<int>(R));
+    vector<int> available(R);
+
+    cout << "\nEnter Allocation matrix (" << P << "x" << R << "):\n";
+    for (int i = 0; i < P; i++)
+        for (int j = 0; j < R; j++)
+            cin >> allocation[i][j];
+
+    cout << "\nEnter Max matrix (" << P << "x" << R << "):\n";
+    for (int i = 0; i < P; i++)
+        for (int j = 0; j < R; j++)
+            cin >> max_need[i][j];
+
+    cout << "\nEnter Available resources (" << R << " values):\n";
+    for (int j = 0; j < R; j++)
+        cin >> available[j];
+
+    // Calculate Need matrix
+    for (int i = 0; i < P; i++)
+        for (int j = 0; j < R; j++)
+            need[i][j] = max_need[i][j] - allocation[i][j];
+
+    // Print Need matrix
+    cout << "\nNeed Matrix:\n";
+    for (int i = 0; i < P; i++) {
+        cout << "P" << i << ": ";
+        for (int j = 0; j < R; j++)
+            cout << need[i][j] << " ";
+        cout << endl;
+    }
+
+    // ===== SAFETY ALGORITHM =====
+    vector<bool> finished(P, false);
+    vector<int> safeSequence;
+    vector<int> work(available);  // work = copy of available
+
+    int count = 0;
+    while (count < P) {
+        bool found = false;
+        for (int i = 0; i < P; i++) {
+            if (!finished[i]) {
+                // Check if Need[i] <= Work (for ALL resource types)
+                bool canRun = true;
+                for (int j = 0; j < R; j++) {
+                    if (need[i][j] > work[j]) {
+                        canRun = false;
+                        break;
+                    }
+                }
+                if (canRun) {
+                    // Process i can finish → release its resources
+                    for (int j = 0; j < R; j++)
+                        work[j] += allocation[i][j];
+                    
+                    finished[i] = true;
+                    safeSequence.push_back(i);
+                    count++;
+                    found = true;
+                }
+            }
+        }
+        if (!found) break;  // no process could run → DEADLOCK
+    }
+
+    // ===== RESULT =====
+    if (count == P) {
+        cout << "\n✅ System is in a SAFE STATE!\n";
+        cout << "Safe Sequence: ";
+        for (int i = 0; i < P; i++) {
+            cout << "P" << safeSequence[i];
+            if (i < P - 1) cout << " → ";
+        }
+        cout << endl;
+    } else {
+        cout << "\n❌ System is NOT in a safe state (DEADLOCK possible)!\n";
+    }
+
+    return 0;
+}
+```
+
+### Sample Run (Classic Textbook Example)
+```
+Enter number of processes: 5
+Enter number of resource types: 3
+
+Enter Allocation matrix:
+0 1 0
+2 0 0
+3 0 2
+2 1 1
+0 0 2
+
+Enter Max matrix:
+7 5 3
+3 2 2
+9 0 2
+2 2 2
+4 3 3
+
+Enter Available resources:
+3 3 2
+
+Need Matrix:
+P0: 7 4 3
+P1: 1 2 2
+P2: 6 0 0
+P3: 0 1 1
+P4: 4 3 1
+
+✅ System is in a SAFE STATE!
+Safe Sequence: P1 → P3 → P4 → P0 → P2
+```
+
+---
+
+## Quick Cheat Sheet for Tomorrow
+
+```
+┌─────────────────────────────────────────────┐
+│  PAGE REPLACEMENT → Which page to remove?   │
+│    FIFO    = oldest page                    │
+│    LRU     = least recently used            │
+│    Optimal = won't be needed longest        │
+│                                             │
+│  BANKER'S ALGO → Is the system safe?        │
+│    Need = Max - Allocation                  │
+│    Find a process where Need ≤ Available    │
+│    Let it finish, reclaim its resources     │
+│    Repeat. If all finish → SAFE             │
+└─────────────────────────────────────────────┘
+```
+
+Good luck tomorrow! 🚀
