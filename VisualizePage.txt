@@ -1,0 +1,217 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_set>
+#include <algorithm>
+#include <iomanip>
+#include <climits>
+using namespace std;
+
+// Utility to print memory
+void printMemory(vector<int>& memory, int frames) {
+    cout << "[";
+    for (int i = 0; i < frames; i++) {
+        if (i < (int)memory.size()) cout << memory[i];
+        else cout << "-";
+        if (i != frames - 1) cout << ", ";
+    }
+    cout << "]";
+}
+
+// ==================== FIFO ====================
+int fifo(vector<int>& pages, int frames) {
+    unordered_set<int> s;
+    queue<int> q;
+    vector<int> memory;
+    int faults = 0;
+
+    cout << "\n--- FIFO ---\n";
+    cout << left << setw(10) << "Ref" << setw(20) << "Memory" << setw(10) << "Status" << "Notes\n";
+
+    for (int page : pages) {
+        cout << left << setw(10) << page;
+
+        if (s.find(page) == s.end()) {
+            faults++;
+            string note;
+
+            if ((int)s.size() == frames) {
+                int oldest = q.front(); q.pop();
+                s.erase(oldest);
+
+                auto it = find(memory.begin(), memory.end(), oldest);
+                if (it != memory.end()) memory.erase(it);
+
+                note = to_string(oldest) + " removed. ";
+            }
+
+            s.insert(page);
+            q.push(page);
+            memory.push_back(page);
+
+            printMemory(memory, frames);
+            cout << setw(10) << "PF" << note + to_string(page) + " added.";
+        } else {
+            printMemory(memory, frames);
+            cout << setw(10) << "Hit" << "Already present.";
+        }
+        cout << endl;
+    }
+    cout << "Total Page Faults: " << faults << endl;
+    return faults;
+}
+
+// ==================== LRU ====================
+int lru(vector<int>& pages, int frames) {
+    vector<int> memory;
+    int faults = 0;
+
+    cout << "\n--- LRU ---\n";
+    cout << left << setw(10) << "Ref" << setw(20) << "Memory" << setw(10) << "Status" << "Notes\n";
+
+    for (int page : pages) {
+        cout << left << setw(10) << page;
+
+        auto it = find(memory.begin(), memory.end(), page);
+
+        if (it == memory.end()) {
+            faults++;
+            string note;
+
+            if ((int)memory.size() == frames) {
+                int removed = memory.front();
+                memory.erase(memory.begin());
+                note = to_string(removed) + " removed. ";
+            }
+
+            memory.push_back(page);
+
+            printMemory(memory, frames);
+            cout << setw(10) << "PF" << note + to_string(page) + " added.";
+        } else {
+            memory.erase(it);
+            memory.push_back(page);
+
+            printMemory(memory, frames);
+            cout << setw(10) << "Hit" << "Moved to MRU.";
+        }
+        cout << endl;
+    }
+    cout << "Total Page Faults: " << faults << endl;
+    return faults;
+}
+
+// ==================== MRU ====================
+int mru(vector<int>& pages, int frames) {
+    vector<int> memory;
+    int faults = 0;
+
+    cout << "\n--- MRU ---\n";
+    cout << left << setw(10) << "Ref" << setw(20) << "Memory" << setw(10) << "Status" << "Notes\n";
+
+    for (int page : pages) {
+        cout << left << setw(10) << page;
+
+        auto it = find(memory.begin(), memory.end(), page);
+
+        if (it == memory.end()) {
+            faults++;
+            string note;
+
+            if ((int)memory.size() == frames) {
+                int removed = memory.back();
+                memory.pop_back();
+                note = to_string(removed) + " removed (MRU). ";
+            }
+
+            memory.push_back(page);
+
+            printMemory(memory, frames);
+            cout << setw(10) << "PF" << note + to_string(page) + " added.";
+        } else {
+            memory.erase(it);
+            memory.push_back(page);
+
+            printMemory(memory, frames);
+            cout << setw(10) << "Hit" << "Moved to MRU.";
+        }
+        cout << endl;
+    }
+    cout << "Total Page Faults: " << faults << endl;
+    return faults;
+}
+
+// ==================== OPTIMAL ====================
+int optimal(vector<int>& pages, int frames) {
+    vector<int> memory;
+    int faults = 0;
+
+    cout << "\n--- OPTIMAL ---\n";
+    cout << left << setw(10) << "Ref" << setw(20) << "Memory" << setw(10) << "Status" << "Notes\n";
+
+    for (int i = 0; i < (int)pages.size(); i++) {
+        int page = pages[i];
+        cout << left << setw(10) << page;
+
+        if (find(memory.begin(), memory.end(), page) == memory.end()) {
+            faults++;
+            string note;
+
+            if ((int)memory.size() == frames) {
+                int farthest = -1, idx = 0;
+
+                for (int j = 0; j < (int)memory.size(); j++) {
+                    int nextUse = INT_MAX;
+
+                    for (int k = i + 1; k < (int)pages.size(); k++) {
+                        if (pages[k] == memory[j]) {
+                            nextUse = k;
+                            break;
+                        }
+                    }
+
+                    if (nextUse > farthest) {
+                        farthest = nextUse;
+                        idx = j;
+                    }
+                }
+
+                note = to_string(memory[idx]) + " removed. ";
+                memory[idx] = page;
+            } else {
+                memory.push_back(page);
+            }
+
+            printMemory(memory, frames);
+            cout << setw(10) << "PF" << note + to_string(page) + " added.";
+        } else {
+            printMemory(memory, frames);
+            cout << setw(10) << "Hit" << "Already present.";
+        }
+        cout << endl;
+    }
+
+    cout << "Total Page Faults: " << faults << endl;
+    return faults;
+}
+
+// ==================== MAIN ====================
+int main() {
+    int n, frames;
+    cout << "Enter number of pages: ";
+    cin >> n;
+
+    vector<int> pages(n);
+    cout << "Enter page reference string: ";
+    for (int i = 0; i < n; i++) cin >> pages[i];
+
+    cout << "Enter number of frames: ";
+    cin >> frames;
+
+    fifo(pages, frames);
+    lru(pages, frames);
+    mru(pages, frames);
+    optimal(pages, frames);
+
+    return 0;
+}
