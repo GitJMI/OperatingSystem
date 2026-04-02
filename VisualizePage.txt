@@ -197,7 +197,8 @@ int optimal(vector<int>& pages, int frames) {
 
 // ==================== MAIN ====================
 int main() {
-    int n, frames;
+    int n, frames, choice;
+
     cout << "Enter number of pages: ";
     cin >> n;
 
@@ -208,10 +209,30 @@ int main() {
     cout << "Enter number of frames: ";
     cin >> frames;
 
-    fifo(pages, frames);
-    lru(pages, frames);
-    mru(pages, frames);
-    optimal(pages, frames);
+    cout << "\nChoose Algorithm:\n";
+    cout << "1. FIFO\n";
+    cout << "2. LRU\n";
+    cout << "3. MRU\n";
+    cout << "4. Optimal\n";
+    cout << "Enter choice: ";
+    cin >> choice;
+
+    switch (choice) {
+        case 1:
+            fifo(pages, frames);
+            break;
+        case 2:
+            lru(pages, frames);
+            break;
+        case 3:
+            mru(pages, frames);
+            break;
+        case 4:
+            optimal(pages, frames);
+            break;
+        default:
+            cout << "Invalid choice!" << endl;
+    }
 
     return 0;
 }
